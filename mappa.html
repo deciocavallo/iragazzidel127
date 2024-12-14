@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Map</title>
+    <link rel="stylesheet" href="assets/openlayer/ol.css" type="text/css">
+    <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+    <script src="assets/openlayer/ol.js"></script>
+    <style>
+      html, body {
+        height: 100%;
+        width: 100%;
+        padding: 0px;
+        margin: 0px;
+      } 
+      .map {
+        height: 100%;
+        width: 100%;
+      }
+      .ol-popup {
+        font-family: Arial;
+        font-size: 0.9em;
+        position: absolute;
+        background-color: white;
+        -webkit-filter: drop-shadow(0 1px 4px rgba(0,0,0,0.2));
+        filter: drop-shadow(0 1px 4px rgba(0,0,0,0.2));
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #cccccc;
+        bottom: 12px;
+        left: -50px;
+        min-width: 100px;
+      }
+      .ol-popup:after, .ol-popup:before {
+        top: 100%;
+        border: solid transparent;
+        content: " ";
+        height: 0;
+        width: 0;
+        position: absolute;
+        pointer-events: none;
+      }
+      .ol-popup:after {
+        border-top-color: white;
+        border-width: 10px;
+        left: 48px;
+        margin-left: -10px;
+      }
+      .ol-popup:before {
+        border-top-color: #cccccc;
+        border-width: 11px;
+        left: 48px;
+        margin-left: -11px;
+      }
+      .ol-popup-closer {
+        text-decoration: none;
+        position: absolute;
+        top: 2px;
+        right: 8px;
+      }
+      .ol-popup-closer:after {
+        content: "x";
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map" class="map"></div>
+    <div id="popup" class="ol-popup">
+      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+      <div id="popup-content"></div>
+    </div>
+    <script>
+    var locations = [{{ content|striptags('<br>,<strong>,<i>,<img>')|raw  }}];
+
+
+
+
+      /**
+       * Elements that make up the popup.
+       */
+      var container = document.getElementById('popup');
+      var content = document.getElementById('popup-content');
+      var closer = document.getElementById('popup-closer');
+
+
+      /**
+       * Add a click handler to hide the popup.
+       * @return {boolean} Don't follow the href.
+       */
+      closer.onclick = function() {
+        overlay.setPosition(undefined);
+        closer.blur();
+        return false;
+      };
+
+
+      /**
+       * Create an overlay to anchor the popup to the map.
+       */
+      var overlay = new ol.Overlay({
+        element: container,
+        autoPan: true,
+        autoPanAnimation: {
+          duration: 250
+        }
+      });
+
+
+      var features = [];
+      for (var i=0; i<locations.length;i++) {
+        features.push(coloredSvgMarker([locations[i][2], locations[i][1]], locations[i][0], locations[i][3]));
+      }
+
+      
+      var vectorSource = new ol.source.Vector({ // VectorSource({
+        features: features
+      });
+
+      var vectorLayer = new ol.layer.Vector({ // VectorLayer({
+        source: vectorSource
+      });
+
+      var map = new ol.Map({
+        layers: [
+          new ol.layer.Tile({ // TileLayer({
+            source: new ol.source.OSM()
+          }), vectorLayer
+        ],
+        overlays: [overlay],
+        target: 'map',
+        view: new ol.View({
+          center: ol.proj.fromLonLat([40.7748, 14.50]),
+          zoom: 9
+        }),
+        interactions: ol.interaction.defaults({
+          mouseWheelZoom: false
+        })
+      });
+
+      // make the map's view to zoom and pan enough to display all the points
+      map.getView().fit(vectorSource.getExtent(), map.getSize());
+
+      /**
+       * Add a click handler to the map to render the popup.
+       */
+      map.on('singleclick', function(evt) {
+        var name = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+          return feature.get('name');
+        })
+        if (name) {
+          container.style.display="block";
+          var coordinate = evt.coordinate;
+          content.innerHTML = name;
+          overlay.setPosition(coordinate);
+        } else {
+          container.style.display="none";
+        }
+      });
+      map.on('pointermove', function(evt) {
+        map.getTargetElement().style.cursor = map.hasFeatureAtPixel(evt.pixel) ? 'pointer' : '';
+      });
+
+
+      function coloredSvgMarker(lonLat, name, color, circleFill) {
+         if (!color) color = 'red';
+         if (!circleFill) circleFill = 'white';
+         var feature = new ol.Feature({
+           geometry: new ol.geom.Point(ol.proj.fromLonLat(lonLat)),
+           name: name
+         });
+         var svg = '<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="30px" height="30px" viewBox="0 0 30 30" enable-background="new 0 0 30 30" xml:space="preserve">'+    
+                '<path fill="'+color+'" d="M22.906,10.438c0,4.367-6.281,14.312-7.906,17.031c-1.719-2.75-7.906-12.665-7.906-17.031S10.634,2.531,15,2.531S22.906,6.071,22.906,10.438z"/>'+
+                '<circle fill="'+circleFill+'" cx="15" cy="10.677" r="3.291"/></svg>';
+
+         feature.setStyle(
+           new ol.style.Style({
+             image: new ol.style.Icon({
+               anchor: [0.5, 1.0],
+               anchorXUnits: 'fraction',
+               anchorYUnits: 'fraction',
+               src: "assets/openlayer/point.png",
+               //src: 'data:image/svg+xml,' + escape(svgpng),
+               scale: 1,
+               imgSize: [32,46],
+             })
+           })
+         );
+         return feature;
+      }
+    </script> 
+
+  </body>
+</html>
